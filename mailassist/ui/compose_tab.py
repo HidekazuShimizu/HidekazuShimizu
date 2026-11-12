@@ -14,7 +14,9 @@ from PySide6.QtWidgets import (
 )
 
 from ..ai import AIError, create_backend
-from ..ai.prompts import SYSTEM_PROMPT, ComposeRequest, build_compose_prompt, parse_draft
+from ..ai.prompts import (
+    SYSTEM_PROMPT, ComposeRequest, build_compose_prompt, find_placeholders, parse_draft,
+)
 from ..db import Contact, Database, SentMessage
 from ..mail.sender import MailError, SmtpSession, build_message, save_to_sent
 from .common import Worker, account_from_settings, run_in_background
@@ -39,6 +41,11 @@ class DraftEditor(QWidget):
         self.status = QLabel("作成中…")
         self.subject = QLineEdit()
         self.body = QPlainTextEdit()
+        self.notes = QPlainTextEdit()
+        self.notes.setReadOnly(True)
+        self.notes.setMaximumHeight(110)
+        self.notes.setStyleSheet("QPlainTextEdit { background: #FFF8E1; color: #5D4037; }")
+        self.notes_label = QLabel("AIからの確認事項（メールには含まれません）")
         self.regen = QPushButton("この宛先だけ作り直す")
 
         top = QHBoxLayout()
@@ -54,6 +61,9 @@ class DraftEditor(QWidget):
         v.addLayout(top)
         v.addLayout(form)
         v.addWidget(self.body, 1)
+        v.addWidget(self.notes_label)
+        v.addWidget(self.notes)
+        self._show_notes("")
         row = QHBoxLayout()
         row.addWidget(self.regen)
         row.addStretch()
@@ -67,10 +77,22 @@ class DraftEditor(QWidget):
         if busy:
             self.status.setText("作成中…")
 
-    def set_draft(self, subject: str, body: str):
+    def _show_notes(self, notes: str):
+        self.notes.setPlainText(notes)
+        self.notes.setVisible(bool(notes.strip()))
+        self.notes_label.setVisible(bool(notes.strip()))
+
+    def set_draft(self, subject: str, body: str, notes: str = ""):
         self.subject.setText(subject)
         self.body.setPlainText(body)
-        self.status.setText("作成済み（確認・編集してください）")
+        self._show_notes(notes)
+        left = find_placeholders(subject + "\n" + body)
+        if left:
+            self.status.setText(f"作成済み：{len(left)}か所の空欄を埋めてください")
+        elif not subject:
+            self.status.setText("作成済み：件名を入力してください")
+        else:
+            self.status.setText("作成済み（確認・編集してください）")
         self.set_busy(False)
 
     def set_error(self, msg: str):
@@ -302,6 +324,14 @@ class ComposeTab(QWidget):
         if any(not e.sent for e in self.editors) and self.editors:
             if QMessageBox.question(self, "確認", "表示中の未送信の下書きは破棄されます。作成しますか？") != QMessageBox.Yes:
                 return
+        if not (self.db.get_setting("sender_name") or "").strip():
+            if QMessageBox.question(
+                self, "差出人名が未設定です",
+                "「設定」→「差出人・署名」で差出人名が設定されていません。\n"
+                "このまま作成すると、本文の名前の部分が【要確認：差出人名】になります。\n\n"
+                "このまま作成しますか？",
+            ) != QMessageBox.Yes:
+                return
         req = self._build_request()
         if req is None:
             return
@@ -346,7 +376,7 @@ class ComposeTab(QWidget):
     def _on_draft(self, ed: DraftEditor, draft, worker):
         self._workers.discard(worker)
         self.pending -= 1
-        ed.set_draft(draft.subject, draft.body + self._signature())
+        ed.set_draft(draft.subject, draft.body + self._signature(), draft.notes)
         self._update_buttons()
 
     def _on_draft_error(self, ed: DraftEditor, msg: str, worker):
@@ -372,8 +402,11 @@ class ComposeTab(QWidget):
         body = ed.body.toPlainText()
         if not body.strip():
             return f"{ed.contact.name}：本文が空です。"
-        if "【要確認" in body or "【要確認" in ed.subject.text():
-            return f"{ed.contact.name}：本文に【要確認】が残っています。内容を埋めてから送信してください。"
+        left = find_placeholders(ed.subject.text() + "\n" + body)
+        if left:
+            return (f"{ed.contact.name}：埋めていない箇所が残っています。\n\n"
+                    + "\n".join(f"・{p}" for p in left)
+                    + "\n\n内容を書き換えてから送信してください。")
         return None
 
     def _account_or_warn(self):

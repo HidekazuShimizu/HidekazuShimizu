@@ -52,18 +52,24 @@ class CliBackend(AIBackend):
         self.timeout = timeout
 
     def generate(self, system: str, prompt: str) -> str:
-        args = [
-            self.path, "-p",
-            "--output-format", "text",
-            "--model", self.model,
-            "--system-prompt", system,
-            "--tools", "",
-        ]
         creationflags = 0
         if sys.platform == "win32":
             creationflags = subprocess.CREATE_NO_WINDOW  # 黒い窓を出さない
-        # プロジェクト用の設定（CLAUDE.md 等）を読み込ませないよう空のフォルダで実行
+        # プロジェクト用の設定（CLAUDE.md 等）を読み込ませないよう空のフォルダで実行する。
+        # 指示文はファイルで渡す：Windows では claude.cmd 経由になるため、
+        # 引数に改行があると1行目より後ろが切り捨てられてしまう。
         with tempfile.TemporaryDirectory() as workdir:
+            sp_file = os.path.join(workdir, "system_prompt.txt")
+            with open(sp_file, "w", encoding="utf-8") as f:
+                f.write(system)
+            args = [
+                self.path, "-p",
+                "--output-format", "text",
+                "--model", self.model,
+                "--system-prompt-file", sp_file,
+                "--tools", "",
+            ]
+            assert not any("\n" in a for a in args)
             try:
                 proc = subprocess.run(
                     args,
@@ -71,6 +77,7 @@ class CliBackend(AIBackend):
                     capture_output=True,
                     text=True,
                     encoding="utf-8",
+                    errors="replace",
                     timeout=self.timeout,
                     cwd=workdir,
                     creationflags=creationflags,

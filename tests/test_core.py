@@ -105,3 +105,72 @@ def test_cli_backend_with_fake_claude(tmp_path):
     out = CliBackend(cli_path=str(fake)).generate("sys", "prompt")
     d = parse_draft(out)
     assert d.subject == "テスト件名" and d.body == "本文テスト"
+
+
+# 実際に Windows で起きた出力（指示が届かず Markdown＋解説付きで返ってきたもの）
+BROKEN_OUTPUT = """# 熊本復興の一環として「くまモビ」紹介をお願いするメール（清水秀和様宛）
+
+**件名：** 熊本復興を応援するアプリ「くまモビ」ご紹介のお願い
+
+---
+
+清水秀和 様
+
+はじめまして。
+Androidアプリ「くまモビ」を個人で開発しております、【お名前】と申します。
+
+■ ご紹介いただきたい内容
+・熊本復興を応援するアプリとして「くまモビ」があること
+
+どうぞよろしくお願いいたします。
+
+---
+
+**送る前に確認してほしいこと**
+- **【】の部分を埋めてください：** お名前と、連絡した理由です。
+"""
+
+
+def test_parse_broken_markdown_output():
+    d = parse_draft(BROKEN_OUTPUT)
+    assert d.subject == "熊本復興を応援するアプリ「くまモビ」ご紹介のお願い"
+    assert d.body.startswith("清水秀和 様")
+    assert d.body.rstrip().endswith("どうぞよろしくお願いいたします。")
+    assert "**" not in d.body and "送る前に" not in d.body
+    assert "送る前に確認してほしいこと" in d.notes
+
+
+def test_parse_tag_format():
+    d = parse_draft("<subject>ご相談</subject>\n<body>\n山田様\n\n本文\n</body>\n<notes>\n- 日付を確認\n</notes>")
+    assert (d.subject, d.body, d.notes) == ("ご相談", "山田様\n\n本文", "- 日付を確認")
+
+
+def test_find_placeholders():
+    from mailassist.ai.prompts import find_placeholders
+    text = "【お名前】と申します。【要確認：日付】に公開。【ご確認事項】は以下。素材：○○様"
+    assert find_placeholders(text) == ["【お名前】", "【要確認：日付】"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell script")
+def test_cli_backend_passes_system_prompt_as_file(tmp_path):
+    """指示文を引数ではなくファイルで渡す（Windows の .cmd で改行以降が消える問題の対策）。"""
+    from mailassist.ai.cli_backend import CliBackend
+
+    log = tmp_path / "args.txt"
+    fake = tmp_path / "claude"
+    fake.write_text(textwrap.dedent(f"""\
+        #!/bin/sh
+        cat > /dev/null
+        for a in "$@"; do echo "ARG:$a" >> {log}; done
+        while [ $# -gt 0 ]; do
+          if [ "$1" = "--system-prompt-file" ]; then cat "$2" >> {log}; fi
+          shift
+        done
+        printf '<subject>件名</subject><body>本文</body>'
+    """))
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    CliBackend(cli_path=str(fake)).generate("1行目\n2行目の指示", "prompt")
+    logged = log.read_text(encoding="utf-8")
+    assert "ARG:--system-prompt-file" in logged
+    assert "ARG:--system-prompt\n" not in logged
+    assert "2行目の指示" in logged

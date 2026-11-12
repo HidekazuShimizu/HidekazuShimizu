@@ -98,6 +98,7 @@ def test_blocks_unresolved_placeholders(app, tmp_path, monkeypatch):
             return "件名: ご相談\n---\nリリース日は【要確認：日付】です。"
 
     monkeypatch.setattr(compose_tab, "create_backend", lambda s: PlaceholderBackend())
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.Yes)
     warned = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warned.append(a[2]))
     win = MainWindow(db)

@@ -2,4 +2,4 @@
 
 APP_NAME = "許可取りくん"
 APP_ID = "KyokaToriKun"  # データ保存先フォルダ名・資格情報の登録名
-__version__ = "0.1.0"
+__version__ = "0.1.1"

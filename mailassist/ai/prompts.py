@@ -16,14 +16,19 @@ SYSTEM_PROMPT = """\
 - 冒頭で名乗り、用件を早めに示す。相手が判断に必要な情報（何を・どこで・どの範囲で使うか）を具体的に書く。
 - 相手が返信しやすいよう、確認したい事項は箇条書きなどで整理する。
 - 相手が断りやすい配慮（ご都合が合わない場合はお知らせください 等）を入れ、圧をかけない。
-- 入力にない事実（実績、数値、日付、約束、金額）を作らない。不足している情報は【要確認：○○】の形で本文に残す。
+- 入力にない事実（実績、数値、日付、約束、金額、相手との接点）を作らない。メールに必要なのに入力にない情報は、必ず【要確認：○○】という形（例：【要確認：差出人名】）で本文に残す。【お名前】のような別の書き方はしない。
 - 宛先ごとのメモがあれば、その相手に合わせた一文（作品への言及など）を自然に入れる。ただしメモにないことで相手を褒めたり、知り合いであるかのように書いたりしない。
-- 署名は本文に含めない（アプリ側で付け足す）。
+- 本文は宛名で始め、結びの挨拶（よろしくお願いいたします 等）で終える。署名・区切り線・連絡先は書かない（アプリ側で署名を付け足す）。
+- 本文はメールにそのまま貼る普通のテキストにする。Markdown記法（#、**、```、表）は使わない。項目を整理したいときは「■」「・」「1.」を使う。
 
-出力形式（この形式以外の文章は出力しない）:
-件名: <件名>
----
-<本文>
+出力形式（次の3つのタグだけを出力し、タグの外には何も書かない）:
+<subject>件名</subject>
+<body>
+本文
+</body>
+<notes>
+差出人が送信前に確認・判断すべき点を箇条書きで（なければ空）。本文には含めない。
+</notes>
 """
 
 
@@ -77,7 +82,7 @@ def build_compose_prompt(req: ComposeRequest, contact: Contact) -> str:
         f"## 依頼のジャンル\n{req.genre.name}\n",
         f"## このジャンルで押さえる点\n{req.genre.guidance}\n" if req.genre.guidance else "",
         "## 差出人\n",
-        _line("名前", req.sender_name),
+        _line("名前", req.sender_name or "（未設定）"),
         _line("メールアドレス", req.sender_email),
         "\n## アプリの情報\n",
         _line("アプリ名", req.app_name),
@@ -119,9 +124,26 @@ def build_reply_prompt(req: ReplyRequest) -> str:
 class Draft:
     subject: str
     body: str
+    notes: str = ""
 
 
-_SUBJECT_RE = re.compile(r"^\s*件名\s*[:：]\s*(.+?)\s*$", re.MULTILINE)
+def _tag(text: str, name: str) -> str | None:
+    m = re.search(rf"<{name}>\s*(.*?)\s*</{name}>", text, re.DOTALL)
+    return m.group(1).strip() if m else None
+
+
+# 「件名: ○○」「**件名：** ○○」「# 件名: ○○」などを許容する
+_SUBJECT_RE = re.compile(
+    r"^[ \t#>*_]*件名[ \t*_]*[:：][ \t*_]*(?P<s>.+?)[ \t*_]*$", re.MULTILINE)
+_NOTES_HEAD_RE = re.compile(
+    r"^\s*(?:-{3,}\s*$\n?)?[ \t#*_]*(?:送る前に|送信前に|補足|注意|メモ|確認してほしい|ポイント).*$",
+    re.MULTILINE)
+
+
+def _strip_markdown(text: str) -> str:
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    return text
 
 
 def parse_draft(text: str) -> Draft:
@@ -130,10 +152,34 @@ def parse_draft(text: str) -> Draft:
     if text.startswith("```"):
         text = re.sub(r"^```[a-zA-Z]*\n?", "", text)
         text = re.sub(r"\n?```\s*$", "", text)
+
+    body = _tag(text, "body")
+    if body is not None:
+        return Draft(subject=_strip_markdown(_tag(text, "subject") or "").strip(),
+                     body=_strip_markdown(body),
+                     notes=_tag(text, "notes") or "")
+
+    # タグがない場合（古い形式や指示が守られなかった場合）の読み取り
+    subject = ""
     m = _SUBJECT_RE.search(text)
-    if not m:
-        return Draft(subject="", body=text)
-    subject = m.group(1)
-    rest = text[m.end():]
-    rest = re.sub(r"^\s*-{3,}\s*\n", "", rest.lstrip("\n"), count=1)
-    return Draft(subject=subject, body=rest.strip())
+    if m:
+        subject = m.group("s").strip()
+        text = text[m.end():]
+    notes = ""
+    n = _NOTES_HEAD_RE.search(text)
+    if n and n.start() > len(text) // 3:
+        notes = text[n.start():].strip()
+        text = text[:n.start()]
+    text = _strip_markdown(text).strip()
+    text = re.sub(r"^-{3,}\s*\n", "", text)
+    text = re.sub(r"\n-{3,}\s*$", "", text).strip()
+    return Draft(subject=subject, body=text, notes=_strip_markdown(notes))
+
+
+# 埋め忘れの目印（【要確認：○○】、【お名前】、【○○】など）
+_PLACEHOLDER_RE = re.compile(
+    r"【[^】\n]{0,40}(?:要確認|名前|記入|入力|入れて|埋めて|○○|〇〇|ＸＸ|XX|××|未定)[^】\n]{0,40}】")
+
+
+def find_placeholders(text: str) -> list[str]:
+    return sorted(set(_PLACEHOLDER_RE.findall(text)))
