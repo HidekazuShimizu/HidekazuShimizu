@@ -1,4 +1,6 @@
-# 許可取りメール作成アシスタント（仮称）
+# 許可取りくん
+
+<img src="assets/icon/icon.png" width="96" alt="許可取りくんのアイコン">
 
 アプリ開発で必要になる「素材の使用許可」「名称の使用確認」などの依頼メールを、
 登録した宛先ごとに AI（Claude）が個別に作成し、確認・編集してから 1 通ずつ送信できる Windows アプリです。
@@ -54,18 +56,29 @@ claude
 - **差出人・署名**
 - **AI 接続**：Claude Code 経由（既定）か Claude API を選びます。
 
-パスワードと API キーは Windows の資格情報マネージャーに保存されます。その他のデータは `%APPDATA%\MailAssist\data.sqlite3` に保存されます。
+パスワードと API キーは Windows の資格情報マネージャーに保存されます。その他のデータは `%APPDATA%\KyokaToriKun\data.sqlite3` に保存されます。
 
 ## exe の作成
 
-- 自分用：`build\build_personal.bat` → `dist\MailAssist-Personal\MailAssist-Personal.exe`
-- 販売用：`build\build_commercial.bat` → `dist\MailAssist\MailAssist.exe`
+- 自分用：`build\build_personal.bat` → `dist\KyokaToriKun-Personal\KyokaToriKun-Personal.exe`
+- 販売用：`build\build_commercial.bat` → `dist\KyokaToriKun\KyokaToriKun.exe`
 
 ## 今後の予定
 
 - **フェーズ 2**：受信メールの表示（IMAP）、送ったメールへの返信の紐付け、返信文の自動作成（`mailassist/ai/prompts.py` の `build_reply_prompt` は用意済み）
 - アプリ情報のプリセット保存（複数のアプリを切り替え）
-- 販売に向けて：アプリ名の決定、ライセンスキー、利用規約・プライバシーポリシー、コード署名
+- 販売に向けて：ライセンスキー、利用規約・プライバシーポリシー、コード署名
+
+## アイコン
+
+`assets/icon/icon.svg` が元データです（はんこの「可」の文字は日本語フォントで描画）。
+変更したら次のコマンドで `icon.png` / `icon_512.png` / `icon.ico` を作り直します。
+
+```bash
+python tools/make_icon.py
+```
+
+`assets/icon/variants/` には検討した別案（B はんこくん / C チェックくん）を置いています。
 
 ## 開発者向け
 
@@ -85,5 +98,6 @@ mailassist/
   mail/sender.py SMTP 送信・IMAP 送信済み保存
   ui/            画面（作成・宛先・ジャンル・送信履歴・設定）
   db.py          SQLite 保存
+  resources.py   アイコン等の同梱ファイルの場所
   edition.py     自分用版／販売版の判定
 ```

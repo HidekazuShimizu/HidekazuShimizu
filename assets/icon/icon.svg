@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4C8DF6"/><stop offset="1" stop-color="#2563EB"/></linearGradient></defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <rect x="24" y="62" width="156" height="120" rx="16" fill="#FFFFFF"/>
+  <path d="M30 76 L102 128 L174 76" fill="none" stroke="#C7D2FE" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="78" cy="146" r="8" fill="#1E293B"/>
+  <circle cx="122" cy="146" r="8" fill="#1E293B"/>
+  <path d="M88 160 Q100 172 112 160" fill="none" stroke="#1E293B" stroke-width="6" stroke-linecap="round"/>
+  <ellipse cx="60" cy="161" rx="9" ry="6" fill="#FDA4AF"/>
+  <ellipse cx="140" cy="161" rx="9" ry="6" fill="#FDA4AF"/>
+  <g transform="rotate(-14 192 190)">
+    <circle cx="192" cy="190" r="44" fill="#FFFFFF" stroke="#E11D48" stroke-width="8"/>
+    <text x="192" y="208" text-anchor="middle" font-size="52" fill="#E11D48" font-family="Noto Sans CJK JP, Yu Gothic UI, Meiryo, sans-serif" font-weight="900">可</text>
+  </g>
+</svg>

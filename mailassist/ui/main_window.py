@@ -55,7 +55,7 @@ class MainWindow(QMainWindow):
     def about(self):
         QMessageBox.about(
             self, "このアプリについて",
-            f"{APP_NAME}\nバージョン {__version__}\nエディション: "
+            f"{APP_NAME}\n許可取り・依頼メールの作成アシスタント\n\nバージョン {__version__}\nエディション: "
             f"{'自分用' if edition.is_personal() else '標準'}\n\n"
             "メール本文の作成のため、入力内容はAI（Claude）に送信されます。",
         )
