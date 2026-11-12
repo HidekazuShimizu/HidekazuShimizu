@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from PySide6.QtGui import QAction
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QTabWidget
 
 from .. import APP_NAME, __version__, edition
 from ..db import Database
+from ..resources import icon_path
 from .compose_tab import ComposeTab
 from .contacts_tab import ContactsTab
 from .genres_tab import GenresTab
@@ -53,9 +55,12 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("設定を保存しました。", 5000)
 
     def about(self):
-        QMessageBox.about(
-            self, "このアプリについて",
-            f"{APP_NAME}\n許可取り・依頼メールの作成アシスタント\n\nバージョン {__version__}\nエディション: "
-            f"{'自分用' if edition.is_personal() else '標準'}\n\n"
-            "メール本文の作成のため、入力内容はAI（Claude）に送信されます。",
-        )
+        box = QMessageBox(self)
+        box.setWindowTitle("このアプリについて")
+        box.setIconPixmap(QPixmap(str(icon_path())).scaled(
+            96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        box.setText(f"<b>{APP_NAME}</b><br>許可取り・依頼メールの作成アシスタント")
+        box.setInformativeText(
+            f"バージョン {__version__}　エディション: {'自分用' if edition.is_personal() else '標準'}\n\n"
+            "メール本文の作成のため、入力内容はAI（Claude）に送信されます。")
+        box.exec()

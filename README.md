@@ -71,14 +71,20 @@ claude
 
 ## アイコン
 
-`assets/icon/icon.svg` が元データです（はんこの「可」の文字は日本語フォントで描画）。
-変更したら次のコマンドで `icon.png` / `icon_512.png` / `icon.ico` を作り直します。
+シンボルマークの元画像は `assets/icon/source/symbol_original.webp` です。
+次のコマンドで、アプリ用のアイコン一式を作り直します。
 
 ```bash
 python tools/make_icon.py
 ```
 
-`assets/icon/variants/` には検討した別案（B はんこくん / C チェックくん）を置いています。
+| ファイル | 内容 |
+|---|---|
+| `icon.png` / `icon_512.png` | 角丸タイル付き（ウィンドウのアイコン） |
+| `mark.png` | マークのみ・背景透明（Webサイトや資料用） |
+| `icon.ico` | exe用。48px以上はタイル付き、32px以下は小さくても見やすいマークのみ |
+
+`assets/icon/variants/` には、初期に検討したアイコン案を置いています。
 
 ## 開発者向け
 
